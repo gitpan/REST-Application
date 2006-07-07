@@ -10,7 +10,7 @@ use Carp;
 use Tie::IxHash;
 use UNIVERSAL;
 
-our $VERSION = 0.01;
+our $VERSION = 0.90;
 
 ####################
 # Class Methods 
@@ -143,8 +143,8 @@ sub loadResource {
     return $self->callHandler($handler, @extraArgs);
 }
 
-sub callHandler {
-    my ($self, $handler, @extraArgs) = @_;
+sub getHandlerArgs {
+    my ($self, @extraArgs) = @_;
     my @args = ($self,
                 $self->_getLastRegexMatches(),
                 $self->extraHandlerArgs(),
@@ -153,6 +153,13 @@ sub callHandler {
     # Don't make $self the first argument if the handler is a method on $self,
     # because in that case it'd be redundant.  Also see _getHandlerFromHook().
     shift @args if $self->{__handlerIsOurMethod};
+
+    return @args;
+}
+
+sub callHandler {
+    my ($self, $handler, @extraArgs) = @_;
+    my @args = $self->getHandlerArgs(@extraArgs);
 
     # Call the handler, carp if something goes wrong.
     my $result;

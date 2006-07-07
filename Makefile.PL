@@ -2,7 +2,7 @@ use ExtUtils::MakeMaker;
 
 WriteMakefile(
     NAME => 'REST::Application',
-    'VERSION_FROM' => 'Application.pm', 
+    'VERSION_FROM' => 'lib/REST/Application.pm', 
     'PREREQ_PM' => { 
         'CGI' => 0,
         'Tie::IxHash' => 0,
