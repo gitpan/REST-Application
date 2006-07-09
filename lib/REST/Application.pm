@@ -10,7 +10,7 @@ use Carp;
 use Tie::IxHash;
 use UNIVERSAL;
 
-our $VERSION = 0.90;
+our $VERSION = '0.91';
 
 ####################
 # Class Methods 
@@ -387,35 +387,49 @@ __END__
 
 =head1 NAME
 
-REST::Application - A framework for building RESTful web-applications.
-
-=head1 CAVEAT
-
-This software is still pretty young.  I've been using it everyday for about 6
-months in its current form and so I know it scratches my itch.  It hasn't been
-vetted by many people though.  The documentation in particular is in a flux,
-but should mostly be accurated.
-
-Suggestions for improvements are welcome.
+L<REST::Application> - A framework for building RESTful web-applications.
 
 =head1 SYNOPSIS
 
-    # not done yet
+    # MyRESTApp L<REST::Application> instance / mod_perl handler
+    package MyRESTApp;
+    use Apache;
+    use Apache::Constants qw(:common);
+
+    sub handler {
+        __PACKAGE__->new(request => $r)->run();
+        return OK;
+    }
+    
+    sub getMatchText { return Apache->uri }
+
+    sub setup {
+        my $self = shift;
+        $self->resourceHooks(
+            qr{/rest/parts/(\d+)} => 'get_part',
+            # ... other handlers here ...
+        );
+    }
+
+    sub get_part {
+        my ($self, $part_num) = @_;
+        # Business logic to retrieve part num
+    }
+
+    # Apache conf
+    <Location /rest>
+        perl-script .cgi
+        PerlHandler MyRESTApp
+    </Location>
 
 =head1 DESCRIPTION
 
-This module was modeled after CGI::Application. If you've used that module then
-what you find here will be familiar.
-
 This module acts as a base class for applications which implement a RESTful
-interface.   As currently designed this class can handle one HTTP request per
-instance.  When an HTTP request is recieved some dispatching logic in
-REST::Application is invoked, calling different handlers based on what the kind
-of HTTP request is was (i.e. GET, PUT, etc) and what resource it was trying to
-access.
-
-This module won't ensure that your API is RESTful but hopefully it will aid in
-developing a REST API.
+interface.   When an HTTP request is received some dispatching logic in
+L<L<REST::Application>> is invoked, calling different handlers based on what the
+kind of HTTP request it was (i.e. GET, PUT, etc) and what resource it was
+trying to access.  This module won't ensure that your API is RESTful but
+hopefully it will aid in developing a REST API.
 
 =head1 OVERVIEW
 
@@ -426,18 +440,18 @@ It does not capture everything the module can do.
 
 =item 1. Subclass
 
-Subclass REST::Application, i.e. use base 'REST::Application'.
+Subclass L<REST::Application>, i.e. C<use base 'REST::Application'>.
 
-=item 2. Overload setup()
+=item 2. Overload C<setup()>
 
-Overload the setup() method and set up some resource hooks with
-the resourceHooks() method.  Hooks are mappings of the form: 
+Overload the C<setup()> method and set up some resource hooks with the
+C<resourceHooks()> method.  Hooks are mappings of the form: 
        
             REGEX => handler
 
 where handler is either a method name, a code reference, an object which
-supports the getResource() method, or a reference to an array of the form:
-[$objectRef, "methodName"] ($objectRef can be a class name instead).
+supports the C<getResource()> method, or a reference to an array of the form:
+C<[$objectRef, "methodName"]> (C<$objectRef> can be a class name instead).
 
 The regular expressions are applied, by default, to the path info of the HTTP
 request.  Anything captured by parens in the regex will be passed into the
@@ -447,16 +461,16 @@ For example:
 
     qr{/parts/(\d+)$} => "getPartByNumber",
 
-The above hook will call a method named "getPartByNumber" on the current object
-(i.e. $self, the child of REST::Application) if the path info of the requested
-URI matches the above regular expression.  The first argument to the method
-will be the part number, since that's the first element captured in the regular
-expression.
+The above hook will call a method named C<getPartByNumber> on the current
+object (i.e. $self, an instance of L<REST::Application>) if the path info of
+the requested URI matches the above regular expression.  The first argument to
+the method will be the part number, since that's the first element captured in
+the regular expression.
 
 =item 3. Write code.
 
 Write the code for the handler specified above.  So here we'd define the
-"getPartByNumber" method.
+C<getPartByNumber> method.
 
 =item 4. Create a handler/loader.
 
@@ -483,17 +497,15 @@ script without it.  For example, it'd be bad to have your users go to:
 
     http://www.foo.tld/parts.cgi/12345.html
     
-that .cgi is unRESTful.
+=item 5. Call the C<run()> method.
 
-=item 5. Call the run() method.
-
-When the run() method is called the path info is extracted from the HTTP
+When the C<run()> method is called the path info is extracted from the HTTP
 request.  The regexes specified in step 2 are processed, in order, and if one
 matches then the handler is called.  If the regex had paren. matching then the
 matched elements are passed into the handler.  A handler is also passed a copy
-of the REST::Application object instance (except for the case when the handler
-is a method on the REST::Application object, in that case it'd be redundant).
-So, when writing a subroutine handler you'd do:
+of the L<REST::Application> object instance (except for the case when the
+handler is a method on the L<REST::Application> object, in that case it'd be
+redundant).  So, when writing a subroutine handler you'd do:
 
             sub rest_handler {
                 my ($rest, @capturedArgs) = @_;
@@ -504,12 +516,12 @@ So, when writing a subroutine handler you'd do:
 
 The handler is processed and should return a string or a scalar reference to a
 string.  Optionally the handler should set any header information via the
-header() method on instance object pased in.
+C<header()> method on instance object pased in.
 
 =head1 CALLING ORDER
 
-The REST::Application base class provides a good number of methods, each of
-which can be overloaded.  By default you only need to overload the setup()
+The L<REST::Application> base class provides a good number of methods, each of
+which can be overloaded.  By default you only need to overload the C<setup()>
 method but you may wish to overload others.  To help with this the following
 outline is the calling order of the various methods in the base class.  You can
 find detailed descriptions of each method in the METHODS section of this
@@ -552,115 +564,135 @@ default and it exists only to be overloaded.
         addRepresentation()
 
 The only methods not called as part of the new() or run() methods are the
-helper methods resetHeader() and setRedirect(), both of which call the header()
-and headerType() methods.
+helper methods C<resetHeader()> and C<setRedirect()>, both of which call the
+C<header()> and C<headerType()> methods.
 
 For example, if you wanted to have your code branch on the entire URI of the
 HTTP request rather than just the path info you'd merely overload
-getMatchText() to return the URI rather than the path info.
+C<getMatchText()> to return the URI rather than the path info.
 
 =back
 
 =head1 METHODS
 
-=head2 REST::Application new(%args)
+=head2 new(%args)
 
-This method creates a new REST::Application object and returns it.  The
-arguments passed in via %args, if any, are passed untouched to the setup()
-method.
+This method creates a new L<REST::Application> object and returns it.  The
+arguments passed in via C<%args>, if any, are passed untouched to the
+C<setup()> method.
 
-=head2 CGI query([$newCGI])
+=head2 query([$newCGI])
 
 This accessor/mutator retrieves the current CGI query object or sets it if one
 is passed in.
 
-=head2 void defaultQueryObject([$newCGI])
+=head2 defaultQueryObject([$newCGI])
 
 This method retrieves/sets the default query object.  This method is called if
-query() is called for the first time and no query object has been set yet.
+C<query()> is called for the first time and no query object has been set yet.
 
-=head2 HashRef resourceHooks([HashRef $ref | Hash %hash])
+=head2 resourceHooks([%hash])
 
-This method is used to set the resource hooks.  A REST::Application hook is a
-regex to handler mapping.  The hooks are passed in as a hash (or a reference to
-one) and the keys are treated as regular expressions while the values are
-treated as handlers should PATH_INFO match the regex that maps to that handler.
-The rules for handlers are as follow:
+This method is used to set the resource hooks.  A L<REST::Application> hook is
+a regex to handler mapping.  The hooks are passed in as a hash (or a reference
+to one) and the keys are treated as regular expressions while the values are
+treated as handlers should B<PATH_INFO> match the regex that maps to that
+handler.  
 
-    If the handler' type is ...
+Handlers can be code references, methods on the current object, methods on
+other objects, or class methods.  Also, handlers can be differ based on what
+the B<REQUEST_METHOD> was (e.g. GET, PUT, POST, DELETE, etc).
 
-        string - The handler is considered to be a method on the current
-                 REST::Application instance.
-        code ref - The code ref is considered to be the handler.
-        object ref - The object is considered to have a getResource() method,
-                     which will be used.
-        array ref - The array is expected to be two elements long, the first
-                    element is a class name or object instance.  The 2nd element is a method
-                    name on that class/instance.
-        hash ref - The current REQUEST_METHOD is used as a key to the hash, the
-                   value should be one the four above handler types.
+The handler's types are as follows:
+
+=over 8
+
+=item string 
+
+The handler is considered to be a method on the current L<REST::Application>
+instance.
+
+=item code ref
+
+The code ref is considered to be the handler.
+
+=item object ref
+
+The object is considered to have a C<getResource()> method, which will be used.
+
+=item array ref 
+
+The array is expected to be two elements long, the first element is a class
+name or object instance.  The 2nd element is a method name on that
+class/instance.
+
+=item hash ref
+
+The current B<REQUEST_METHOD> is used as a key to the hash, the value should be
+one the four above handler types.  In this way you can specify different
+handles for each of the request types.
 
 The return value of a reference is expected to be a string, which
-REST::Application will then send to the browser with the sendRepresentation()
-method.
+L<REST::Application> will then send to the browser with the
+C<sendRepresentation()> method.
 
-If no argument is supplied to resourceHooks() then the current set of hooks is
-returned.  The returned hash referces is a tied IxHash, so the keys are kept
+If no argument is supplied to C<resourceHooks()> then the current set of hooks
+is returned.  The returned hash referces is a tied IxHash, so the keys are kept
 sorted.
 
-See the EXAMPLES for more detail.
+=head2 loadResource([$path])
 
-=head2 Scalar loadResource(String $path])
+This method will take the value of B<PATH_INFO>, iterate through the path
+regex's set in C<resourceHooks()> and if it finds a match call the associated
+handler and return the handler's value, which should be a scalar.  If $path is
+passed in then that is used instead of B<PATH_INFO>.
 
-This method will take the value of PATH_INFO, iterate through the path regex's
-set in resourceHooks() and if it finds a match call the associated handler and
-return the handler's value, which should be a scalar.  If $path is passed in
-then that is used instead of PATH_INFO.
+=head2 run()
 
-=head2 String run(void)
+This method calls C<loadResource()> with no arguments and then takes that
+output and sends it to the remote client.  Headers are sent with
+C<sendHeaders()> and the representation is sent with C<sendRepresentation()>.
 
-This method calls loadResource() with no arguments and then takes that output
-and sends it to the remote client.  Headers are sent with sendHeaders() and the
-representation is sent with sendRepresentation().
+If the environment variable B<REST_APP_RETURN_ONLY> is set then output isn't
+sent to the client.  The return value of this method is the text output it
+sends (or would've sent).
 
-If the environment variable  REST_APP_RETURN_ONLY is set then output isn't sent
-to the client.  The return value of this method is the text output it sends (or
-would've sent).
-
-=head2 String sendHeaders(void)
+=head2 sendHeaders()
 
 This method returns the headers as a string.
 
-=head2 String sendRepresentation(Scalar $representation)
+=head2 sendRepresentation($representation)
 
-This method just returns $representation.  It is provided soely for overloading
-purposes.
+This method just returns C<$representation>.  It is provided soely for
+overloading purposes.
 
-=head2 String headerType([String $type])
+=head2 headerType([$type])
 
 This accessor/mutator controls the type of header to be returned.  This method
-returns one of "header, redirect, or none."  If $type is passed in then that is
-used to set the header type. 
+returns one of "header, redirect, or none."  If C<$type> is passed in then that
+is used to set the header type. 
 
-=head2 Hash header([Hash %args])
+=head2 header([%args])
 
 This accessor/mutator controls the header values sent.  If called without
 arguments then it simply returns the current header values as a hash, where the
 keys are the header fields and the values are the header field values.
 
 If this method is called multiple times then the values of %args are additive.
-So calling $self->header(-type => "text/html") and $self->headeR(-foo => "bar")
-results in both the content-type field being set and the "foo" field being set.
+So calling C<$self->header(-type => "text/html")> and C<$self->header(-foo =>
+"bar")> results in both the content-type header being set and the "foo" header
+being set.
 
-=head2 Hash resetHeader(void)
+=head2 resetHeader()
 
 This header causes the current header values to be reset.  The previous values
 are returned.
 
-=head2 Scalar defaultResourceHandler(void)
+=head2 defaultResourceHandler()
 
-This method is called by loadResource() if no regex in resourceHooks() matches
-the current PATH_INFO.  It returns undef by default, it exists for overloading.
+This method is called by C<loadResource()> if no regex in C<resourceHooks()>
+matches the current B<PATH_INFO>.  It returns undef by default, it exists for
+overloading.
 
 =head1 AUTHORS
 
@@ -672,6 +704,6 @@ This program is free software. It is subject to the same license as Perl itself.
 
 =head1 SEE ALSO
 
-L<CGI>, L<CGI::Application>, L<Tie::IxHash>, L<Carp>, L<UNIVERSAL>
+L<CGI>, L<CGI::Application>, L<Tie::IxHash>, L<CGI::Application::Dispatch>
 
 =cut

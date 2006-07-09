@@ -51,7 +51,7 @@ __END__
 
 =head1 NAME
 
-REST::Application::Routes - A simple implementation of Ruby on Rails type routes.
+REST::Application::Routes - An implementation of Ruby on Rails type routes.
 
 =head1 SYNOPSIS
 
@@ -92,5 +92,17 @@ so you should order your templates from least generic to most generic.
 See L<REST::Application> for details.  The only difference between this module
 and that one is that this one uses URI templates as keys in the
 C<resourceHooks> rather than regexes.
+
+=head1 AUTHORS
+
+Matthew O'Connor E<lt>matthew@canonical.orgE<gt>
+
+=head1 LICENSE
+
+This program is free software. It is subject to the same license as Perl itself.
+
+=head1 SEE ALSO
+
+L<REST::Application>, L<http://manuals.rubyonrails.com/read/chapter/65>
 
 =cut
