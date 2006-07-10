@@ -6,7 +6,10 @@ use base 'REST::Application';
 
 sub foo { "foo" }
 sub barMethod { shift; return join(":", @_) }
-sub getResource { "xAbC" }
+sub GET { "xAbC" }
+sub DELETE { "xAbC" }
+sub PUT { "xAbC" }
+sub POST { "xAbC" }
 sub getRepresentation { "qWeRtY" }
 sub preRun { shift->{preRun} = 1 }
 sub postRun { 

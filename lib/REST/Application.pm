@@ -10,7 +10,7 @@ use Carp;
 use Tie::IxHash;
 use UNIVERSAL;
 
-our $VERSION = '0.91';
+our $VERSION = '0.92';
 
 ####################
 # Class Methods 
@@ -327,6 +327,7 @@ sub _getHandlerFromHook {
     my $ref = $self->resourceHooks()->{$pathRegex};
     my $refType = ref($ref);
     my $handler = sub { $self->defaultResourceHandler(@_) };
+    my $method = $self->getRequestMethod() || "getResource";
 
     # If we get a hash, then use the request method to narrow down the choice.
     # We do this first because we allow the same range of handler types for a
@@ -343,16 +344,17 @@ sub _getHandlerFromHook {
         $handler = $ref;
     } elsif ($refType eq "ARRAY") {
         # Array reference which holds a $object and "method name" pair.
-        my ($object, $method) = @$ref;
-        $handler = sub { $object->$method(@_) };
+        my ($object, $smethod) = @$ref;
+        $smethod ||= $method;
+        $handler = sub { $object->$smethod(@_) };
     } elsif ($refType) {
-        # Object with getResource method.
-        $handler = sub { $ref->getResource(@_) };
+        # Object with GET, PUT, etc, or getResource method.
+        $handler = sub { $ref->$method(@_) };
     } elsif ($ref) {
         # A bare string signifying a method name
         $handler = sub { $self->$ref(@_) };
         $self->{__handlerIsOurMethod} = 1;  # See callHandler().
-    }
+    } 
 
     return $handler;
 }
@@ -450,8 +452,9 @@ C<resourceHooks()> method.  Hooks are mappings of the form:
             REGEX => handler
 
 where handler is either a method name, a code reference, an object which
-supports the C<getResource()> method, or a reference to an array of the form:
-C<[$objectRef, "methodName"]> (C<$objectRef> can be a class name instead).
+supports a method with the same name as the HTTP method (or C<getResource> if
+no such method), or a reference to an array of the form: C<[$objectRef,
+"methodName"]> (C<$objectRef> can be a class name instead).
 
 The regular expressions are applied, by default, to the path info of the HTTP
 request.  Anything captured by parens in the regex will be passed into the
@@ -618,7 +621,11 @@ The code ref is considered to be the handler.
 
 =item object ref
 
-The object is considered to have a C<getResource()> method, which will be used.
+The object is considered to have a method the same name as the HTTP method.
+That is, if the object is being called because of GET then C<GET()> is called,
+if it is called because of a C<DELETE> then C<DELETE()> is called.
+C<getResource()> method will be used if C<getRequestMethod()> returns
+false.
 
 =item array ref 
 

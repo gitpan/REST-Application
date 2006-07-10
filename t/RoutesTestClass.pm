@@ -6,7 +6,10 @@ use base 'REST::Application::Routes';
 
 sub foo { "foo" }
 sub barMethod { shift; shift; return join(":", @_) }
-sub getResource { "xAbC" }
+sub GET { "xAbC" }
+sub PUT { "xAbC" }
+sub POST { "xAbC" }
+sub DELETE { "xAbC" }
 sub getRepresentation { "qWeRtY" }
 sub preRun { shift->{preRun} = 1 }
 sub postRun { 
