@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 use strict;
 use warnings;
-use Test::More tests => 57;
+use Test::More tests => 64;
 use Data::Dumper;
 use lib 't/';
 
@@ -262,7 +262,7 @@ BEGIN {
     my $obj = TestClass->new();
     $rest->resourceHooks(qr{^/parts/(\d+)\.(\w+)} => $obj);
     my $resource = $rest->loadResource();
-    is($$resource, "xAbC", "Loading resource - with \$object->getResource() hook");
+    is($$resource, "xAbC", "Loading resource - with \$object->DELETE() hook");
 }
 
 # TEST: headerType
@@ -472,7 +472,7 @@ BEGIN {
     $rest->resourceHooks(q(foo) => $resourceHook);
     $rest->extraHandlerArgs(qw(hello jello world foo bar));
     my $output = $rest->run();
-    is($rest->{preHandler}, "hello:jello:world:foo:bar");
+    is($rest->{preHandler}, "hello:jello:world:foo:bar", "Testing pre handler");
 }
 
 # TEST: postHandler()
@@ -487,7 +487,7 @@ BEGIN {
     $rest->resourceHooks(qr(foo) => $resourceHook);
     $rest->extraHandlerArgs(qw(hello jello world foo bar));
     my $output = $rest->run();
-    is($rest->{postHandler}, "hello jello world foo barhello:jello:world:foo:bar");
+    is($rest->{postHandler}, "hello jello world foo barhello:jello:world:foo:bar", "testing post handler");
 }
 
 # TEST: callHandler()
@@ -517,4 +517,46 @@ BEGIN {
         $rest->callHandler($resourceHook);
     };
     like($@, qr/TEST ERROR/, "The handle caller with error.");
+}
+
+# TEST: '*' handler
+{
+    restoreENV();
+    CGI->initialize_globals();
+    my $rest = REST::Application->new();
+    $ENV{REQUEST_METHOD} = "PUT";
+    $ENV{PATH_INFO} = "/parts/12345.xml";
+    $rest->resourceHooks(qr{^/parts/(\d+)\.(\w+)} => {
+                            GET => sub { die },
+                            POST => sub { die },
+                            DELETE => sub { die },
+                            '*' => sub { ref($_[0]) . $_[1].$_[2] }
+                        });
+    is(${$rest->loadResource()}, "REST::Application12345xml", "Loading resource - code reference");
+}
+
+# TEST: simpleContentNegotiation
+{
+    restoreENV();
+    CGI->initialize_globals();
+    my $rest = REST::Application->new();
+    $ENV{REQUEST_METHOD} = "PUT";
+    $ENV{PATH_INFO} = "/parts";
+    $ENV{HTTP_ACCEPT} = 'text/xml,application/xml,application/xhtml+xml,text/html;q=0.9,text/plain;q=0.8,image/png,*/*;q=0.5';  # Firefox default Accept header.
+    my @types = qw(text/xml application/xml text/html text/json */*);
+    my $hash = {
+        '*/*' => sub { '*/*' },
+        'text/json' => sub { '*/*' },
+        'text/html' => sub { 'text/html' },
+        'text/xml' => sub { 'text/xml' },
+        'application/xml' => sub { 'application/xml' },
+    };
+    for my $type (@types, "") {
+        $rest->resourceHooks(qr{/parts} => {PUT => $hash});
+        my $wanted_type = $type ? $type : '*/*';
+        $wanted_type = '*/*' if $type eq 'text/json';
+        my $msg = $type ? $type : "empty string";
+        is(${$rest->loadResource()}, $wanted_type, "con-neg on $msg");
+        delete $hash->{$type} unless $type eq '*/*';
+    }
 }

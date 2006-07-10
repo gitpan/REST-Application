@@ -10,7 +10,7 @@ use Carp;
 use Tie::IxHash;
 use UNIVERSAL;
 
-our $VERSION = '0.92';
+our $VERSION = '0.93';
 
 ####################
 # Class Methods 
@@ -332,9 +332,23 @@ sub _getHandlerFromHook {
     # If we get a hash, then use the request method to narrow down the choice.
     # We do this first because we allow the same range of handler types for a
     # particular HTTP method that we do for a more generic handler.
-    while ($refType eq 'HASH') {
+    if ($refType eq 'HASH') {
         %$ref = map { uc($_) => $ref->{$_} } keys %$ref;  # Uppercase the keys
-        $ref = $ref->{$self->getRequestMethod()};
+        my $http_method = $self->getRequestMethod();
+        if (exists $ref->{$http_method}) {
+            $ref = $ref->{$http_method}
+        } elsif (exists $ref->{'*'}) {
+            $ref = $ref->{'*'};
+        } else {
+            return $handler;  # Just bail now with the default handler.
+        }
+        $refType = ref($ref);
+    }
+
+    # If we still have a hash then assume we're doing Content Negotation
+    if ($refType eq 'HASH') {
+        my $type = $self->bestContentType(keys %$ref);
+        $ref = $ref->{$type};
         $refType = ref($ref);
     }
 
@@ -357,6 +371,71 @@ sub _getHandlerFromHook {
     } 
 
     return $handler;
+}
+
+sub bestContentType {
+    my ($self, @types) = @_;
+    return ($self->simpleContentNegotiation(@types))[0] || '*/*';
+}
+
+# We don't support the full range of content negtiation because a) it's
+# overkill and b) it makes it hard to specify the hooks cleanly, also see (a).
+sub simpleContentNegotiation {
+    my ($self, @types) = @_;
+    my @accept_types = $self->getContentPrefs();
+    my $score = sub { $self->scoreType(shift, @accept_types) };
+    return sort {$score->($b) <=> $score->($a)} @types;
+}
+
+# The pattern matching stuff was stolen from CGI.pm
+sub scoreType {
+    my ($self, $type, @accept_types) = @_;
+    my $score = scalar(@accept_types);
+    for my $accept_type (@accept_types) {
+        return $score if $type eq $accept_type;
+        my $pat;
+        ($pat = $accept_type) =~ s/([^\w*])/\\$1/g; # escape meta characters
+        $pat =~ s/\*/.*/g; # turn it into a pattern
+        return $score if $type =~ /$pat/;
+        $score--;
+    }
+    return 0;
+}
+
+# Basic idea stolen from CGI.pm.  Its semantics made it hard to pull out the
+# information I wanted without a lot of trickery, so I improved upon the
+# original.  Same with libwww's HTTP::Negotiate algorithim, it's also hard to
+# make go with what we want.
+sub getContentPrefs {
+    my $self = shift;
+    my $default_weight = 1;
+    my @prefs;
+
+    # Parse the Accept header, and save type name, score, and position.
+    my @accept_types = split /,/, $self->getAcceptHeader();
+    my $order = 0;
+    for my $accept_type (@accept_types) {
+        my ($weight) = ($accept_type =~ /q=(\d\.\d+|\d+)/);
+        my ($name) = ($accept_type =~ m#(\S+/[^;]+)#);
+        next unless $name;
+        push @prefs, { name => $name, order => $order++};
+        if (defined $weight) {
+            $prefs[-1]->{score} = $weight;
+        } else {
+            $prefs[-1]->{score} = $default_weight;
+            $default_weight -= 0.001;
+        }
+    }
+
+    # Sort the types by score, subscore by order, and pull out just the name
+    @prefs = map {$_->{name}} sort {$b->{score} <=> $a->{score} || 
+                                    $a->{order} <=> $b->{order}} @prefs;
+    return @prefs, '*/*';  # Allows allow for */*
+}
+
+sub getAcceptHeader {
+    my $self = shift;
+    return $self->query->http('accept') || "";
 }
 
 # List _getLastRegexMatches(void)
@@ -438,7 +517,7 @@ hopefully it will aid in developing a REST API.
 The following list describes the basic way this module is intended to be used.
 It does not capture everything the module can do.
 
-=over
+=over 8
 
 =item 1. Subclass
 
@@ -552,9 +631,15 @@ default and it exists only to be overloaded.
                 getRequestMethod()
                     query()
                         defaultQueryObject()
+                bestContentType()
+                    simpleContentNegotiation
+                        getContentPrefs
+                            getAcceptHeader
+                        scoreType()
             callHandler()
-                _getLastRegexMatches()
-                extraHandlerArgs()
+                getHandlerArgs
+                    _getLastRegexMatches()
+                    extraHandlerArgs()
                 preHandler() - NOOP
                 ... your handler called here ...
                 postHandler() - NOOP
@@ -631,15 +716,37 @@ false.
 
 The array is expected to be two elements long, the first element is a class
 name or object instance.  The 2nd element is a method name on that
-class/instance.
+class/instance.  IF the 2nd element is ommitted then the method name is assumed
+to be the same as the B<REQUEST_METHOD>, e.g. C<GET()>, C<PUT()>, whatever.
 
 =item hash ref
 
 The current B<REQUEST_METHOD> is used as a key to the hash, the value should be
 one the four above handler types.  In this way you can specify different
-handles for each of the request types.
+handlers for each of the request types.  The request method can also be
+specified as '*', in which case that is used if a more specific match is not
+found.
 
-The return value of a reference is expected to be a string, which
+It is possible for the value of the handler to be another hash ref, rather than
+one of the four above types.  In this case it is assumed content-negotion is
+wanted.  The keys of this second hash are MIME types and the values are one of
+the four above types.  For example:
+
+    $self->resourceHooks(
+        qr{/parts/(\d+)} => {
+            GET => {
+                'text/json' => 'get_json',
+                'text/xml', => 'get_xml',
+                'text/xml' => 'get_html',
+                '*/*' => 'get_html',
+            },
+            '*' => sub { die "Bad Method!" },
+        }
+    );
+
+=back
+
+The return value of the handler is expected to be a string, which
 L<REST::Application> will then send to the browser with the
 C<sendRepresentation()> method.
 
@@ -700,6 +807,35 @@ are returned.
 This method is called by C<loadResource()> if no regex in C<resourceHooks()>
 matches the current B<PATH_INFO>.  It returns undef by default, it exists for
 overloading.
+
+=head2 bestContentType(@types)
+
+Given a list of MIME types this function returns the best matching type
+considering the Accept header of the current request (as returned by
+C<getAcceptHeader()>.
+
+=head2 simpleContentNegotiation(@types)
+
+Given a list of MIME types this function returns the same list sorted from best
+match to least considering the Accept header as returned by
+C<getAcceptHeader()>.
+
+=head2 getContentPrefs()
+
+Returns the list of MIME types in the Accept header form most preferred to
+least preferred.  Quality weights are taken into account.
+
+=head2 getAcceptHeader()
+
+Returns the value of the Accept header as a single string.
+
+=head2 scoreType($type, @accept_types)
+
+Returns an integer, only good for sorting, for where C<$type> fits among the
+C<@accept_types>.  This method takes wildcards into account.  So C<text/plain>
+matches C<text/*>.  The integer returned is the position in C<@accept_types> of
+the matching MIME type.  It assumped @accept_types is already sorted from best
+to worst.
 
 =head1 AUTHORS
 
