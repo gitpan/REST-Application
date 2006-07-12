@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 use strict;
 use warnings;
-use Test::More tests => 60;
+use Test::More tests => 62;
 use lib 't/';
 
 # Some special helpers to restove the environment
@@ -518,6 +518,9 @@ BEGIN {
     $obj->resourceHooks('/foo/:var/bar', => sub {shift; shift;});
     is_deeply(${$obj->loadResource("/foo/42/bar")}, {var => 42},
               "Testing parsing action");
+    is($obj->getLastMatchPath(), "/foo/42/bar", "Testing getLastMatchPath");
+    is($obj->getLastMatchPattern(), "/foo/:var/bar", 
+       "Testing getLastMatchPattern");
 }
 
 # TEST: run, more advanced usage.

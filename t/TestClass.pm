@@ -67,4 +67,18 @@ sub callHandler {
     return ref($handler) . join(":", @extraArgs);
 }
 
+sub makeHandlerFromClass {
+    my $self = shift;
+    return $self->SUPER::makeHandlerFromClass(@_) unless $self->{TEST_MHFC};
+    my ($class, $method) = @_;
+    return sub { "$class $method" };
+}
+
+sub makeHandlerFromRef {
+    my $self = shift;
+    return $self->SUPER::makeHandlerFromRef(@_) unless $self->{TEST_MHFR};
+    my ($obj, $method) = @_;
+    return sub { "SMOKE " . ref($obj). " $method" };
+}
+
 1;

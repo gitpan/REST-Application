@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 use strict;
 use warnings;
-use Test::More tests => 64;
+use Test::More tests => 68;
 use Data::Dumper;
 use lib 't/';
 
@@ -559,4 +559,30 @@ BEGIN {
         is(${$rest->loadResource()}, $wanted_type, "con-neg on $msg");
         delete $hash->{$type} unless $type eq '*/*';
     }
+}
+
+# TEST: makeHandlerFromClass()
+{
+    restoreENV();
+    CGI->initialize_globals();
+    my $rest = TestClass->new();
+    $ENV{REST_APP_RETURN_ONLY} = 1;
+    $rest->{TEST_MHFC} = 1;
+    $rest->resourceHooks(q(foo) => ["CowsLoveMe", "BecauseIhugThem"]);
+    my $output = $rest->loadResource("foo");
+    is($$output, "CowsLoveMe BecauseIhugThem", "Testing makeHandlerFromClass");
+}
+
+# TEST: makeHandlerFromRef()
+{
+    restoreENV();
+    CGI->initialize_globals();
+    my $rest = TestClass->new();
+    $ENV{REST_APP_RETURN_ONLY} = 1;
+    $rest->{TEST_MHFR} = 1;
+    $rest->resourceHooks(qr/.*foo/ => [{}, "MAN"]);
+    my $output = $rest->loadResource('foo');
+    is($$output, "SMOKE HASH MAN", "Testing makeHandlerFromRef");
+    is($rest->getLastMatchPattern(), qr/.*foo/, "Testing getLastMatchPattern");
+    is($rest->getLastMatchPath(), "foo", "Testing getLastMatchPath");
 }

@@ -10,7 +10,7 @@ use Carp;
 use Tie::IxHash;
 use UNIVERSAL;
 
-our $VERSION = '0.94';
+our $VERSION = '0.95';
 
 ####################
 # Class Methods 
@@ -187,10 +187,22 @@ sub checkMatch {
 
     if ($a =~ /$b/) {
         $self->_setLastRegexMatches();
+        $self->{__last_match_path} = $a;
+        $self->{__last_match_pattern} = $b;
         $match = 1;
     }
 
     return $match;
+}
+
+sub getLastMatchPath {
+    my $self = shift;
+    return $self->{__last_match_path};
+}
+
+sub getLastMatchPattern {
+    my $self = shift;
+    return $self->{__last_match_pattern};
 }
 
 sub run {
@@ -367,12 +379,12 @@ sub _getHandlerFromHook {
         }
     } elsif ($refType) {
         # Object with GET, PUT, etc, or getResource method.
-        $handler = sub { $ref->$method(@_) };
+        $handler = $self->makeHandlerFromRef($ref, $method);
     } elsif ($ref) {
         # A bare string signifying a method name
         $handler = sub { $self->$ref(@_) };
         $self->{__handlerIsOurMethod} = 1;  # See callHandler().
-    } 
+    }
 
     return $handler;
 }
@@ -850,6 +862,17 @@ C<@accept_types>.  This method takes wildcards into account.  So C<text/plain>
 matches C<text/*>.  The integer returned is the position in C<@accept_types> of
 the matching MIME type.  It assumped @accept_types is already sorted from best
 to worst.
+
+=head2 getLastMatchPath()
+
+Returns the last path passed to C<checkMatch()> which successfully matched
+against.  Unless you're overloading things in funny ways the value returned
+will be the path that caused the current handler to be invoked.
+
+=head2 getLastMatchPattern()
+
+Similar to C<getLastMatchPath()> except this is the pattern that was applied to
+the path.
 
 =head1 AUTHORS
 

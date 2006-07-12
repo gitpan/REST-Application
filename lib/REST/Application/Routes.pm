@@ -19,7 +19,8 @@ sub loadResource {
                     map {/^:/ ? '([^/]*)' : quotemeta $_}
                     split m{/}, $template;
         if ($self->checkMatch($path, $regex)) {
-            %vars = $self->_get_template_vars($template);
+            $self->{__last_match_pattern} = $template;
+            %vars = $self->getTemplateVars($template);
             $handler = $self->_getHandlerFromHook($template);
             last;
         }
@@ -40,10 +41,20 @@ sub getHandlerArgs {
 }
 
 sub _get_template_vars {
+    my $self = shift;
+    return $self->getTemplateVars(@_);
+}
+
+sub getTemplateVars {
     my ($self, $route) = @_;
     my @matches = $self->_getLastRegexMatches();
     my @vars = map {s/^://; $_} grep /^:/, split m{/}, $route;
     return map { $vars[$_] => $matches[$_] } (0 .. scalar(@matches)-1);
+}
+
+sub getLastMatchTemplate {
+    my $self = shift;
+    return $self->getLastMatchPattern();
 }
 
 1;
@@ -92,6 +103,23 @@ so you should order your templates from least generic to most generic.
 See L<REST::Application> for details.  The only difference between this module
 and that one is that this one uses URI templates as keys in the
 C<resourceHooks> rather than regexes.
+
+=head1 METHODS
+
+These are methods which L<REST::Application::Routes> has but its superclass
+does not.
+
+=head2 getTemplateVars()
+
+Returns a hash whose keys are the C<:symbols> from the URI template and whose
+values are what where matched to be there.  It is assumed that this method is
+called either from within or after C<loadResource()> is called.  Otherwise
+you're likely to get an empty hash back.
+
+=head2 getLastMatchTemplate()
+
+This is an alias for C<getLastMatchPattern()>, since this class is about
+templates rather than regexes.
 
 =head1 AUTHORS
 
