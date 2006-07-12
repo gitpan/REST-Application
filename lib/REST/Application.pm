@@ -10,7 +10,7 @@ use Carp;
 use Tie::IxHash;
 use UNIVERSAL;
 
-our $VERSION = '0.93';
+our $VERSION = '0.94';
 
 ####################
 # Class Methods 
@@ -358,9 +358,13 @@ sub _getHandlerFromHook {
         $handler = $ref;
     } elsif ($refType eq "ARRAY") {
         # Array reference which holds a $object and "method name" pair.
-        my ($object, $smethod) = @$ref;
+        my ($thing, $smethod) = @$ref;
         $smethod ||= $method;
-        $handler = sub { $object->$smethod(@_) };
+        if (ref $thing) {
+            $handler = $self->makeHandlerFromRef($thing, $smethod);
+        } else {
+            $handler = $self->makeHandlerFromClass($thing, $smethod);
+        }
     } elsif ($refType) {
         # Object with GET, PUT, etc, or getResource method.
         $handler = sub { $ref->$method(@_) };
@@ -371,6 +375,16 @@ sub _getHandlerFromHook {
     } 
 
     return $handler;
+}
+
+sub makeHandlerFromRef {
+    my ($self, $ref, $method) = @_;
+    return sub { $ref->$method(@_) };
+}
+
+sub makeHandlerFromClass {
+    my ($self, $class, $method) = @_;
+    return sub { $class->$method(@_) };
 }
 
 sub bestContentType {
