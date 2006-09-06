@@ -10,7 +10,7 @@ use Carp;
 use Tie::IxHash;
 use UNIVERSAL;
 
-our $VERSION = '0.95';
+our $VERSION = '0.96';
 
 ####################
 # Class Methods 

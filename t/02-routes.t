@@ -389,7 +389,7 @@ BEGIN {
     CGI->initialize_globals();
     my $rest = REST::Application::Routes->new();
     $rest->setRedirect("http://www.google.com");
-    like($rest->getHeaders(), qr{^Status: 302 Moved\r\n[lL]ocation: http://www\.google\.com\r\n\r\n$}, "Redirect header");
+    like($rest->getHeaders(), qr{^Status: 302 (Moved|Found)\r\n[lL]ocation: http://www\.google\.com\r\n\r\n$}, "Redirect header");
 }
 
 # TEST: getMatchText()
