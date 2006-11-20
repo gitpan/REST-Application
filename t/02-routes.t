@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 use strict;
 use warnings;
-use Test::More tests => 62;
+use Test::More tests => 65;
 use lib 't/';
 
 # Some special helpers to restove the environment
@@ -542,4 +542,18 @@ BEGIN {
                        '/data/pages/cows/sections/udder/love/cakes matches');
    is_deeply(${$obj->loadResource("/data/workspaces/cows")}, {ws => 'cows'},
              '/data/workspaces/cows matches');
+}
+
+# TEST: Empty variable fix, from Chris Dent.
+{
+   my $obj = REST::Application::Routes->new();
+   $obj->resourceHooks(
+       '/data/tags/:tag', => sub {shift; shift},
+       '/data/tags', => sub {shift; shift},
+   );
+
+   is_deeply(${$obj->loadResource("/data/tags")}, {}, '/data/tags matches');
+   is_deeply(${$obj->loadResource("/data/tags/")}, {}, '/data/tags matches');
+   is_deeply(${$obj->loadResource("/data/tags/foo")}, {tag => 'foo'}, 
+             '/data/tags/foo matches');
 }
