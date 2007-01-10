@@ -11,7 +11,7 @@ use Tie::IxHash;
 use UNIVERSAL;
 use CGI;
 
-our $VERSION = '0.98';
+our $VERSION = '0.981';
 
 ####################
 # Class Methods 
@@ -113,8 +113,11 @@ sub getRequestMethod {
     my $self = shift;
     if ($self->query->url_param('http_method')) {
         return uc($self->query->url_param('http_method'));
+    } elsif ($self->query->param('http_method')) {
+        return uc($self->query->param('http_method'));
+    } else {
+        return uc($self->query->request_method());
     }
-    return uc($self->query->request_method());
 }
 
 #############################
