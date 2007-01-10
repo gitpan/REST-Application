@@ -9,8 +9,9 @@ use warnings;
 use Carp;
 use Tie::IxHash;
 use UNIVERSAL;
+use CGI;
 
-our $VERSION = '0.97';
+our $VERSION = '0.98';
 
 ####################
 # Class Methods 
@@ -19,7 +20,7 @@ our $VERSION = '0.97';
 sub new {
     my ($proto, %args) = @_;
     my $class = ref($proto) ? ref($proto) : $proto;
-    my $self = bless({}, $class);
+    my $self = bless({ __defaultQuery => CGI->new() }, $class);
     $self->setup(%args);
     return $self;
 }
@@ -44,12 +45,6 @@ sub query {
 
 sub defaultQueryObject {
     my $self = shift;
-
-    # Set the default value if this method hasn't been called before.
-    if (not exists $self->{__query}) {
-        require CGI;
-        $self->{__defaultQuery} = CGI->new();
-    }
 
     # Set the field if we got any arguments.
     if (@_) {
@@ -116,6 +111,9 @@ sub getPathInfo {
 
 sub getRequestMethod {
     my $self = shift;
+    if ($self->query->url_param('http_method')) {
+        return uc($self->query->url_param('http_method'));
+    }
     return uc($self->query->request_method());
 }
 

@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 use strict;
 use warnings;
-use Test::More tests => 68;
+use Test::More tests => 70;
 use Data::Dumper;
 use lib 't/';
 
@@ -585,4 +585,24 @@ BEGIN {
     is($$output, "SMOKE HASH MAN", "Testing makeHandlerFromRef");
     is($rest->getLastMatchPattern(), qr/.*foo/, "Testing getLastMatchPattern");
     is($rest->getLastMatchPath(), "foo", "Testing getLastMatchPath");
+}
+
+# TEST: fake the http method
+{
+    restoreENV();
+    CGI->initialize_globals();
+    $ENV{REQUEST_METHOD} = "POST";
+    $ENV{QUERY_STRING} = "http_method=PUT";
+    my $rest = REST::Application->new();
+    is_deeply($rest->getRequestMethod(), "PUT", "Retrieving fake request method.");
+}
+
+# TEST: fake the http method, again
+{
+    restoreENV();
+    CGI->initialize_globals();
+    $ENV{REQUEST_METHOD} = "POST";
+    $ENV{QUERY_STRING} = "http_method=COW";
+    my $rest = REST::Application->new();
+    is_deeply($rest->getRequestMethod(), "COW", "Retrieving fake request method.");
 }
