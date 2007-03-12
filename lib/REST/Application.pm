@@ -11,7 +11,7 @@ use Tie::IxHash;
 use UNIVERSAL;
 use CGI;
 
-our $VERSION = '0.981';
+our $VERSION = '0.991';
 
 ####################
 # Class Methods 
@@ -109,15 +109,30 @@ sub getPathInfo {
     return $self->query->path_info();
 }
 
-sub getRequestMethod {
+sub getRealRequestMethod {
     my $self = shift;
-    if ($self->query->url_param('http_method')) {
-        return uc($self->query->url_param('http_method'));
-    } elsif ($self->query->param('http_method')) {
-        return uc($self->query->param('http_method'));
-    } else {
-        return uc($self->query->request_method());
+    return uc( $self->query->request_method() || "" );
+}
+
+sub getRequestMethod {
+    my $self          = shift;
+    my $real_method   = $self->getRealRequestMethod();
+    my $tunnel_method = uc(
+               $self->query->http('X-HTTP-Method')
+            || $self->query->url_param('http_method')
+            || $self->query->param('http_method')
+            || $real_method
+    );
+
+    # POST can tunnel any method.
+    return $tunnel_method if $real_method eq 'POST';
+
+    # GET can only tunnel GET/HEAD
+    if ( $real_method eq 'GET' and $tunnel_method =~ /^(GET|HEAD)$/ ) {
+        return $tunnel_method;
     }
+
+    return $real_method;
 }
 
 #############################
@@ -874,6 +889,20 @@ will be the path that caused the current handler to be invoked.
 
 Similar to C<getLastMatchPath()> except this is the pattern that was applied to
 the path.
+
+=head2 getRequestMethod()
+
+This method tries to be smart and allow tunneling of the other HTTP methods
+over GET or PUT.  You can tunnel three ways with the higher up taking
+precedence:
+
+1) Pass an X-HTTP-Method header
+2) Pass the 'http_method' query parameter
+3) Pass a parameter via POST 
+
+Only POST and GET, being the most common, can be used to tunnel.  In an attempt
+to prevent people from being bad, GET can only be used to tunnel GET or HEAD.
+POST can be used to tunnel anything.
 
 =head1 AUTHORS
 

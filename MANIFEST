@@ -1,3 +1,4 @@
+bin/server
 lib/REST/Application/Routes.pm
 lib/REST/Application.pm
 Makefile.PL

@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 use strict;
 use warnings;
-use Test::More tests => 70;
+use Test::More tests => 80;
 use Data::Dumper;
 use lib 't/';
 
@@ -594,7 +594,9 @@ BEGIN {
     $ENV{REQUEST_METHOD} = "POST";
     $ENV{QUERY_STRING} = "http_method=PUT";
     my $rest = REST::Application->new();
-    is_deeply($rest->getRequestMethod(), "PUT", "Retrieving fake request method.");
+    is_deeply( $rest->getRealRequestMethod(), "POST", "Test Real Method" );
+    is_deeply( $rest->getRequestMethod(), "PUT",
+        "Tunnel PUT over POST via query param." );
 }
 
 # TEST: fake the http method, again
@@ -602,7 +604,59 @@ BEGIN {
     restoreENV();
     CGI->initialize_globals();
     $ENV{REQUEST_METHOD} = "POST";
-    $ENV{QUERY_STRING} = "http_method=COW";
+    $ENV{QUERY_STRING} = "http_method=GET";
     my $rest = REST::Application->new();
-    is_deeply($rest->getRequestMethod(), "COW", "Retrieving fake request method.");
+    is_deeply( $rest->getRealRequestMethod(), "POST", "Test Real Method" );
+    is_deeply( $rest->getRequestMethod(), "GET",
+        "Tunnel GET over POST via query param." );
+}
+
+# TEST: fake the HTTP method
+{
+    restoreENV();
+    CGI->initialize_globals();
+    $ENV{REQUEST_METHOD} = "POST";
+    $ENV{HTTP_X_HTTP_METHOD} = "DELETE";
+    my $rest = REST::Application->new();
+    is_deeply( $rest->getRealRequestMethod(), "POST", "Test Real Method" );
+    is_deeply( $rest->getRequestMethod(), "DELETE",
+        "Tunnel DELETE over POST via header." );
+}
+
+# TEST: fake the HTTP method
+{
+    restoreENV();
+    CGI->initialize_globals();
+    $ENV{REQUEST_METHOD} = "GET";
+    $ENV{HTTP_X_HTTP_METHOD} = "POST";
+    my $rest = REST::Application->new();
+    is_deeply( $rest->getRealRequestMethod(), "GET", "Test Real Method" );
+    is_deeply( $rest->getRequestMethod(), "GET",
+        "Tunnel POST over GET does not work" );
+}
+
+# TEST: fake the HTTP method
+{
+    restoreENV();
+    CGI->initialize_globals();
+    $ENV{REQUEST_METHOD} = "GET";
+    $ENV{HTTP_X_HTTP_METHOD} = "HEAD";
+    my $rest = REST::Application->new();
+    is_deeply( $rest->getRealRequestMethod(), "GET", "Test Real Method" );
+    is_deeply( $rest->getRequestMethod(), "HEAD",
+        "Tunnel HEAD over GET does work" );
+}
+
+# TEST: fake the HTTP method
+{
+    restoreENV();
+    CGI->initialize_globals();
+    $ENV{REQUEST_METHOD} = "POST";
+    my $cgi = CGI->new;
+    $cgi->param( "http_method", "PUT" );
+    my $rest = REST::Application->new();
+    $rest->query($cgi);
+    is_deeply( $rest->getRealRequestMethod(), "POST", "Test Real Method" );
+    is_deeply( $rest->getRequestMethod(), "PUT",
+        "Tunnel PUT over POST content" );
 }
