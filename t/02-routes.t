@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 use strict;
 use warnings;
-use Test::More tests => 65;
+use Test::More tests => 67;
 use lib 't/';
 
 # Some special helpers to restove the environment
@@ -537,9 +537,12 @@ BEGIN {
    is_deeply(${$obj->loadResource("/data/tags")}, {}, '/data/tags matches');
    is_deeply(${$obj->loadResource("/data/tags/foo")}, {tag => 'foo'}, 
              '/data/tags/foo matches');
-   is_deeply(${$obj->loadResource("/data/pages/cows/sections/udder/love/cakes")},
+   is_deeply(${$obj->loadResource("/data/pages/cows/sections/udder")},
                        {page => 'cows', section => 'udder'},
                        '/data/pages/cows/sections/udder/love/cakes matches');
+   is(${$obj->loadResource("/data/pages/cows/sections/udder/love/cakes")},
+                        undef,
+                       '/data/pages/cows/sections/udder/love/cakes no match');
    is_deeply(${$obj->loadResource("/data/workspaces/cows")}, {ws => 'cows'},
              '/data/workspaces/cows matches');
 }
@@ -549,11 +552,21 @@ BEGIN {
    my $obj = REST::Application::Routes->new();
    $obj->resourceHooks(
        '/data/tags/:tag', => sub {shift; shift},
-       '/data/tags', => sub {shift; shift},
+       '/data/tags', => sub {shift; "cow"},
    );
 
-   is_deeply(${$obj->loadResource("/data/tags")}, {}, '/data/tags matches');
-   is_deeply(${$obj->loadResource("/data/tags/")}, {}, '/data/tags matches');
+   is_deeply(${$obj->loadResource("/data/tags")}, "cow", '/data/tags matches');
+   is_deeply(${$obj->loadResource("/data/tags/")}, "cow", '/data/tags matches');
    is_deeply(${$obj->loadResource("/data/tags/foo")}, {tag => 'foo'}, 
              '/data/tags/foo matches');
+}
+
+# TEST: make sure /foo does not match in the middle of something else
+{
+    my $obj = REST::Application::Routes->new();
+    $obj->resourceHooks(
+        '/foo', => sub { shift; "cow" },
+    );
+    is( ${$obj->loadResource("/fooCOW")}, undef,
+        '/fowCOW is not matched' );
 }

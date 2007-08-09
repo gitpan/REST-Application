@@ -11,7 +11,7 @@ use Tie::IxHash;
 use UNIVERSAL;
 use CGI;
 
-our $VERSION = '0.991';
+our $VERSION = '0.992';
 
 ####################
 # Class Methods 

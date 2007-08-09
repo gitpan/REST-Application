@@ -16,8 +16,9 @@ sub loadResource {
     # template.  Save the parent matches for passing into the handler.
     for my $template (keys %{ $self->resourceHooks() }) {
         my $regex = join "\\/",
-                    map {/^:/ ? '([^/]+)' : quotemeta $_}
+                    map {/^:/ ? '([^\/]+)' : quotemeta $_}
                     split m{/}, $template;
+        $regex = "^(?:$regex)\\/?\$";
         if ($self->checkMatch($path, $regex)) {
             $self->{__last_match_pattern} = $template;
             %vars = $self->getTemplateVars($template);
